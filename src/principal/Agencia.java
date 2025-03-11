@@ -35,6 +35,7 @@ public class Agencia {
             cargarVehiculos(); //cargar los ficheros
             cargarClientes();
             cargarAlquileres();
+            cargarContadorNumeroAlquiler();
         } catch (ArchivoCorruptoException e) {
             System.out.println("Error al cargar los datos: " + e.getMessage());
         }
@@ -119,35 +120,37 @@ public class Agencia {
     }
 
     // Métodos para gestionar un alquiler
-    public double realizarAlquiler(String placa, String idCliente, 
-    		Date fechaEntrega, Date fechaDevolucion) 
-        throws VehiculoNoEncontradoException, ClienteNoEncontradoException, 
-        VehiculoNoDisponibleException, FechaInvalidaException {
-    	
-    	contadorNumeroAlquiler++; //para llevar un conteo de los alquileres realizados
-    	
-    	//metodos para validar si se encuentra el vehiculo
+    public double realizarAlquiler(String placa, String idCliente, Date fechaEntrega, Date fechaDevolucion) 
+            throws VehiculoNoEncontradoException, ClienteNoEncontradoException, 
+            VehiculoNoDisponibleException, FechaInvalidaException {
+        
+        contadorNumeroAlquiler++; // Incrementa el contador global de alquileres
+        
         int vehiculoIndex = buscarVehiculo(placa);
-        if (vehiculoIndex == -1) throw new VehiculoNoEncontradoException(placa); //esto no se puede poner para que directamente extienda el metodo de buscar vehiculo??
-        																		 // y lanzar la excepción en el metodo para que sea solo llamarlo	
+        if (vehiculoIndex == -1) throw new VehiculoNoEncontradoException(placa);
+        
         int clienteIndex = buscarCliente(idCliente);
         if (clienteIndex == -1) throw new ClienteNoEncontradoException(idCliente);
         
         if (!vehiculos[vehiculoIndex].estaDisponible()) {
             throw new VehiculoNoDisponibleException(placa);
         }
-        //convertir dates a numero de dias
-long milisegundosDiferencia = fechaDevolucion.getTime() - fechaEntrega.getTime();
-        int dias = (int) (milisegundosDiferencia / (24 * 60 * 60 * 1000));
+        //Agregar validación de fecha invalida
 
+        // Calcular días de alquiler
+        long milisegundosDiferencia = fechaDevolucion.getTime() - fechaEntrega.getTime();
+        int dias = (int) (milisegundosDiferencia / (24 * 60 * 60 * 1000));
         if (dias <= 0) throw new FechaInvalidaException();
-        
-        //llamado de metodos necesarios para calcular precio del alquiler
+
         double costo = vehiculos[vehiculoIndex].calcularPrecioPorDia() * dias;
+        
+        // Crear alquiler con número único
         Alquiler nuevo = new Alquiler(placa, idCliente, fechaEntrega, fechaDevolucion, costo);
         nuevo.setNumeroAlquiler(contadorNumeroAlquiler);
+        
         alquileres = Arrays.copyOf(alquileres, alquileres.length + 1);
         alquileres[alquileres.length - 1] = nuevo;
+        
         vehiculos[vehiculoIndex].cambiarDisponibilidad(false);
         
         guardarAlquileres();
@@ -476,17 +479,15 @@ long milisegundosDiferencia = fechaDevolucion.getTime() - fechaEntrega.getTime()
         File archivoTemporal = new File(ARCHIVO_ALQUILERES + ".tmp");
         try (BufferedWriter bw = new BufferedWriter(new FileWriter(archivoTemporal))) {
             for (Alquiler a : alquileres) {
-                bw.write(a.getPlacaVehiculo() + "," + a.getIdCliente() + "," + 
-                         a.getDiaEntrega().getTime() + "," + 
-                         a.getDiaDevolucion().getTime() + "," + 
-                         a.getCostoTotal());
+                bw.write(a.getNumeroAlquiler() + "," + a.getPlacaVehiculo() + "," + a.getIdCliente() + "," + 
+                         a.getDiaEntrega().getTime() + "," + a.getDiaDevolucion().getTime() + "," + 
+                         a.getCostoTotal() + "," + a.esActivo());
                 bw.newLine();
             }
-            bw.close();
-            archivoTemporal.renameTo(new File(ARCHIVO_ALQUILERES));
         } catch (IOException e) {
             System.out.println("Error al guardar alquileres: " + e.getMessage());
         }
+        archivoTemporal.renameTo(new File(ARCHIVO_ALQUILERES));
     }
     
     
@@ -534,6 +535,23 @@ long milisegundosDiferencia = fechaDevolucion.getTime() - fechaEntrega.getTime()
             throw new ArchivoCorruptoException("Formato incorrecto en los datos numéricos del archivo de vehículos.");
         }
     }
+    
+    //cargar datos del contador del alquiler
+    private static void cargarContadorNumeroAlquiler() {
+        try (BufferedReader br = new BufferedReader(new FileReader(ARCHIVO_ALQUILERES))) {
+            String linea;
+            int maxNumeroAlquiler = 0;
+            while ((linea = br.readLine()) != null) {
+                String[] datos = linea.split(",");
+                int numeroAlquiler = Integer.parseInt(datos[0]);
+                maxNumeroAlquiler = Math.max(maxNumeroAlquiler, numeroAlquiler);
+            }
+            contadorNumeroAlquiler = maxNumeroAlquiler;
+        } catch (IOException e) {
+            System.out.println("Error al cargar el contador de alquileres: " + e.getMessage());
+        }
+    }
+
 
     //cargar datos del cliente 
     private void cargarClientes() throws ArchivoCorruptoException {
@@ -567,33 +585,42 @@ long milisegundosDiferencia = fechaDevolucion.getTime() - fechaEntrega.getTime()
             String linea;
             while ((linea = br.readLine()) != null) {
                 String[] datos = linea.split(",");
-                
-                if (datos.length < 5) {
+
+                if (datos.length < 7) {
                     throw new ArchivoCorruptoException("Error en el archivo de alquileres. Línea incorrecta: " + linea);
                 }
 
-                String placaVehiculo = datos[0];
-                String idCliente = datos[1];
-                long fechaEntregaMillis = Long.parseLong(datos[2]);
-                long fechaDevolucionMillis = Long.parseLong(datos[3]);
-                double costoTotal = Double.parseDouble(datos[4]);
+                int numeroAlquiler = Integer.parseInt(datos[0]);
+                String placaVehiculo = datos[1];
+                String idCliente = datos[2];
+                long fechaEntregaMillis = Long.parseLong(datos[3]);
+                long fechaDevolucionMillis = Long.parseLong(datos[4]);
+                double costoTotal = Double.parseDouble(datos[5]);
+                boolean activo = Boolean.parseBoolean(datos[6]);
 
                 Date fechaEntrega = new Date(fechaEntregaMillis);
                 Date fechaDevolucion = new Date(fechaDevolucionMillis);
 
-                Alquiler alquiler = new Alquiler(placaVehiculo, idCliente, fechaEntrega, fechaDevolucion, costoTotal);
+                Alquiler alquiler = new Alquiler(placaVehiculo, idCliente, fechaEntrega, fechaDevolucion, costoTotal, activo, numeroAlquiler);
+                
                 alquileres = Arrays.copyOf(alquileres, alquileres.length + 1);
                 alquileres[alquileres.length - 1] = alquiler;
+                
+                // Asegurar que el contador de alquileres es el mayor registrado
+                if (numeroAlquiler > contadorNumeroAlquiler) {
+                    contadorNumeroAlquiler = numeroAlquiler;
+                }
             }
         } catch (IOException e) {
             throw new ArchivoCorruptoException("No se pudo leer el archivo de alquileres: " + e.getMessage());
-        } catch (NumberFormatException e) {
-            throw new ArchivoCorruptoException("Formato incorrecto en los datos numéricos del archivo de alquileres.");
         }
     }
-  //METODOS SOLO PARA LA INTERFAZ, usados para escribir en un apartado la una lista de elementos
+    
+    
+    
+  //METODOS SOLO PARA LA INTERFAZ
     public String listarAlquileres2() {
-        if (alquileres.length == 0) {				
+        if (alquileres.length == 0) {
             return "No hay alquileres registrados.";
         }
         String resultado = "";
@@ -604,25 +631,24 @@ long milisegundosDiferencia = fechaDevolucion.getTime() - fechaEntrega.getTime()
     }
     
     public String listarVehiculos2() {
-        if (alquileres.length == 0) {
+        if (vehiculos.length == 0) {
             return "No hay Vehiculos registrados.";
         }
         String resultado = "";
-        for (Alquiler a : alquileres) {
-            resultado += a.toString() + "\n--------------------\n"; // 
+        for (Vehiculo v : vehiculos) {
+            resultado += v.toString() + "\n--------------------\n"; // 
         }
         return resultado;
     }
     
     public String listarClientes2() {
-        if (alquileres.length == 0) {
+        if (clientes.length == 0) {
             return "No hay Clientes registrados.";
         }
         String resultado = "";
-        for (Alquiler a : alquileres) {
-            resultado += a.toString() + "\n--------------------\n"; // 
+        for (Cliente c : clientes) {
+            resultado += c.toString() + "\n--------------------\n"; // 
         }
         return resultado;
     }
-    
 }

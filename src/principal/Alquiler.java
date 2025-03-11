@@ -2,26 +2,38 @@ package principal;
 import java.util.Date;
 
 public class Alquiler {
-	//Atributos 
     private String placaVehiculo, idCliente;
     private double costoTotal;
-    private boolean activo = true;
+    private boolean activo;
     private Date diaEntrega;
     private Date diaDevolucion;
     private int numeroAlquiler;
     
-    //Constructor
+    // Constructor para nuevos alquileres (se inicializa como activo)
     public Alquiler(String placaVehiculo, String idCliente, Date diaEntrega, Date diaDevolucion, double costoTotalBase) {
         this.placaVehiculo = placaVehiculo;
         this.idCliente = idCliente;
         this.diaEntrega = diaEntrega;
         this.diaDevolucion = diaDevolucion;
         this.costoTotal = costoTotalBase;
+        this.activo = true; // Siempre activo al crearlo desde la interfaz
     }
-    //Finalizar alquiler
+
+    // Nuevo constructor para cargar desde archivos (permite definir activo e id de alquiler)
+    public Alquiler(String placaVehiculo, String idCliente, Date diaEntrega, Date diaDevolucion, double costoTotalBase, boolean activo, int numeroAlquiler) {
+        this.placaVehiculo = placaVehiculo;
+        this.idCliente = idCliente;
+        this.diaEntrega = diaEntrega;
+        this.diaDevolucion = diaDevolucion;
+        this.costoTotal = costoTotalBase;
+        this.activo = activo;
+        this.numeroAlquiler = numeroAlquiler;
+    }
+
+    // Finalizar alquiler
     public void finalizarAlquiler() { this.activo = false; }
     
-    //Getters and Setters
+    // Getters y Setters
     public String getPlacaVehiculo() { return placaVehiculo; }
     public String getIdCliente() { return idCliente; }
     public double getCostoTotal() { return costoTotal; }
@@ -29,12 +41,12 @@ public class Alquiler {
     public Date getDiaEntrega() { return diaEntrega; }
     public Date getDiaDevolucion() { return diaDevolucion; }
     public int getNumeroAlquiler() { return numeroAlquiler; }
-    public void setNumeroAlquiler(int numeroAlquilerNuevo) {numeroAlquiler = numeroAlquilerNuevo;}
+    public void setNumeroAlquiler(int numeroAlquilerNuevo) { this.numeroAlquiler = numeroAlquilerNuevo; }
     
-    //toString
+    // toString
     public String toString() {
-    	return "La informacion del alquiler es:\nPlaca: "+placaVehiculo+"\nId cliente: "+idCliente+"\nDia entrega: "+diaEntrega+"\nDia devolucion: "+diaDevolucion+"\nEsta activo: "+activo+"\nNumero alquiler: "+numeroAlquiler;
+        return "Alquiler N°: " + numeroAlquiler + "\nPlaca: " + placaVehiculo + "\nId cliente: " + idCliente +
+               "\nDía entrega: " + diaEntrega + "\nDía devolución: " + diaDevolucion + 
+               "\nActivo: " + activo + "\nCosto: " + costoTotal;
     }
-
-
 }
